@@ -57,22 +57,25 @@ def showSmart(serial):
     print("phys. sector size:  %d bytes" % disk.physicalSectorSize)
 
     # Read SMART
+    print()
+    print("Read SMART")
     disk.readSmart()
     print()
     print("SMART VALUES:")
     print("ID# ATTRIBUTE NAME             TYPE     UPDATED   VALUE  WORST  THRESH  RAW")
     for id in sorted(disk.smart):
+        if disk.smart[id][3] < disk.smart[id][5]:
+            print("\033[91m", end="")
         # [pre_fail, online, current, worst, raw, treshold]
         print("{:>3} {:<24} {:10} {:7}  {}  {}  {}    {}".format(id, disk.getSmartStr(id),
-                                                                 "Pre-fail" if disk.smart[
-            id][0] else "Old_age",
-            "Always" if disk.smart[
-            id][1] else "Offline",
-            "  %03d" % disk.smart[
-            id][2],
-            "  %03d" % disk.smart[
-            id][3],
-            "  %03d" % disk.smart[id][5], disk.getSmartRawStr(id)))
+                                                                 "Pre-fail" if disk.smart[id][0] else "Old_age",
+                                                                 "Always" if disk.smart[id][1] else "Offline",
+                                                                 "  %03d" % disk.smart[id][2],
+                                                                 "  %03d" % disk.smart[id][3],
+                                                                 "  %03d" % disk.smart[id][5], disk.getSmartRawStr(id)))
+        print("\033[0m", end="")
+    if disk.readSmartStatus() == atapt.SMART_BAD_STATUS:
+        print("\033[91mSMART STATUS BAD!\033[0m")
     while not sys.stdin.read(1):
         time.sleep(0.1)
     os.system('clear')
@@ -106,7 +109,7 @@ def diskVerify(serial):
         try:
             disk.verifySectors(SECTORS_AT_ONCE, i)
         except atapt.senseError:
-            pass
+            error[serial] = error[serial] + 1
         awgSpeed = awgSpeed + int(1 / (0.001 * disk.duration) * blockSize)
         if disk.ata_error != 0:
             error[serial] = error[serial] + 1
@@ -161,7 +164,7 @@ def diskErase(serial):
             try:
                 disk.writeSectors(SECTORS_AT_ONCE, i, buf)
             except atapt.senseError:
-                pass
+                error[serial] = error[serial] + 1
             awgSpeed = awgSpeed + int(1 / (0.001 * disk.duration) * blockSize)
             if disk.ata_error != 0:
                 error[serial] = error[serial] + 1
