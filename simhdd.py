@@ -76,6 +76,23 @@ def showSmart(serial):
         print("\033[0m", end="")
     if disk.readSmartStatus() == atapt.SMART_BAD_STATUS:
         print("\033[91mSMART STATUS BAD!\033[0m")
+    
+    # Read SMART Self-test log
+    print()
+    log = disk.getSelftestLog()
+    print("SMART Self-test log structure revision number %d" % log[0])
+    print("Test                Status                  Remaining  LifeTime(hours)  LBA of first error")
+    for i in log[1]:
+        print("{:<20}".format(i[0]), end="")
+        print("{:<25}".format(i[1]), end="")
+        print("{:^9}".format(str(i[2]) + "%"), end="")
+        print("{:^15}".format(i[3]), end="")
+        if i[1] == "in progress":
+            print("{:^25}".format("-"), end="")
+        else:
+            print("{:^25}".format(i[4]), end="")
+        print()
+
     while not sys.stdin.read(1):
         time.sleep(0.1)
     os.system('clear')
