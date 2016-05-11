@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from atapt import atapt
 import ctypes
@@ -90,6 +90,86 @@ def nextBusy(busy):
         return("\\")
     elif busy == "\\":
         return("|")
+
+
+def diskLongTest(serial):
+    disk = disks[serial]
+    slow[serial] = 0
+    error[serial] = 0
+    progress[serial] = 0
+    loop[serial] = 0
+    speed[serial] = 0
+    awgSpeed = 0
+    mode[serial] = "Long"
+    time.sleep(1)
+    busy[serial] = "|"
+    try:
+        disk.runSmartSelftest(2)  # Execute SMART Extended self-test routine immediately in off-line mode
+    except atapt.senseError:
+        error[serial] = 1
+    disk.readSmart()
+    while disk.selftestStatus >> 4 == 0x0F:
+        time.sleep(0.5)
+        disk.readSmart()
+        progress[serial] = 20 - (disk.selftestStatus & 0x0F) * 2
+        busy[serial] = nextBusy(busy[serial])
+        if mode[serial] != "Long":
+            error[serial] = 0
+            try:
+                disk.runSmartSelftest(0x7F)  # Abort off-line mode self-test routine
+            except atapt.senseError:
+                error[serial] = 1
+            slow[serial] = 0
+            progress[serial] = 0 
+            busy[serial] = " "
+            return
+    if disk.selftestStatus != 0:
+        error[serial] = disk.selftestStatus
+    else:
+        progress[serial] = 20
+    mode[serial] = "Idle"
+    busy[serial] = " "
+    speed[serial] = 0
+
+
+def diskShortTest(serial):
+    disk = disks[serial]
+    slow[serial] = 0
+    error[serial] = 0
+    progress[serial] = 0
+    loop[serial] = 0
+    speed[serial] = 0
+    awgSpeed = 0
+    mode[serial] = "Short"
+    time.sleep(1)
+    busy[serial] = "|"
+    try:
+        disk.runSmartSelftest(1)  # Execute SMART Short self-test routine immediately in off-line mode
+    except atapt.senseError:
+        error[serial] = 1
+    disk.readSmart()
+    while disk.selftestStatus >> 4 == 0x0F:
+        time.sleep(0.5)
+        disk.readSmart()
+        progress[serial] = 20 - (disk.selftestStatus & 0x0F) * 2
+        busy[serial] = nextBusy(busy[serial])
+        if mode[serial] != "Short":
+            error[serial] = 0
+            try:
+                disk.runSmartSelftest(0x7F)  # Abort off-line mode self-test routine
+            except atapt.senseError:
+                error[serial] = 1
+            slow[serial] = 0
+            progress[serial] = 0 
+            busy[serial] = " "
+            return
+    if disk.selftestStatus != 0:
+        error[serial] = disk.selftestStatus
+    else:
+        progress[serial] = 20
+    mode[serial] = "Idle"
+    busy[serial] = " "
+    speed[serial] = 0
 
 
 def diskVerify(serial):
@@ -245,7 +325,7 @@ try:
             sel = int(ch)
             ch = 0
         if sel > 0:
-            print("Select action :   I-Info    V-Verify    E-Erase    S-Stop", end="")
+            print("Select action :   I-Info   V-Verify   E-Erase   R-Short   L-Long   S-Stop", end="")
             if NEED_QUIT:
                 print("    Q-Quit")
             else:
@@ -259,6 +339,14 @@ try:
                 sel = 0
             elif ch == "e" or ch == "E":
                 d = Process(target=diskErase, args=(select[sel],))
+                d.start()
+                sel = 0
+            elif ch == "r" or ch == "R":
+                d = Process(target=diskShortTest, args=(select[sel],))
+                d.start()
+                sel = 0
+            elif ch == "l" or ch == "L":
+                d = Process(target=diskLongTest, args=(select[sel],))
                 d.start()
                 sel = 0
             elif ch == "s" or ch == "S":
