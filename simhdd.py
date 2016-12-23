@@ -296,6 +296,54 @@ def diskErase(serial):
         loop[serial] = loop[serial] + 1
 
 
+def checkDevs():
+    state = True
+    devs = list(filter(lambda x: x.find('sd') != -1 and len(x) == 3, os.listdir("/dev")))
+    for key in list(disks.keys()):
+        if  disks[key].dev[-3:] not in devs:
+            disks.pop(key)
+            select.remove(key)
+            progress.pop(key)
+            mode.pop(key)
+            loop.pop(key)
+            slow.pop(key)
+            error.pop(key)
+            busy.pop(key)
+            speed.pop(key)
+            state = False
+    for dev in devs:
+        disk = atapt.atapt("/dev/" + dev)
+        if disks.get(disk.serial) and disks[disk.serial].dev == disk.dev:
+            continue
+        else:
+            if disks.get(disk.serial):
+                disks.pop(disk.serial)
+                select.remove(disk.serial)
+                progress.pop(disk.serial)
+                mode.pop(disk.serial)
+                loop.pop(disk.serial)
+                slow.pop(disk.serial)
+                error.pop(disk.serial)
+                busy.pop(disk.serial)
+                speed.pop(disk.serial)
+                state = False
+            disks[disk.serial] = disk
+            select.append(disks[disk.serial].serial)
+            progress[disk.serial] = 0
+            loop[disk.serial] = 0
+            slow[disk.serial] = 0
+            error[disk.serial] = 0
+            speed[disk.serial] = 0
+            busy[disk.serial] = " "
+            mode[disk.serial] = "Idle"
+    if not state:
+        print("\a")
+        os.system('clear')
+        return(False)
+    else:
+        return(True)
+
+
 m = Manager()
 disks = {}
 select = [0]
@@ -306,18 +354,8 @@ slow = m.dict()
 error = m.dict()
 busy = m.dict()
 speed = m.dict()
-dev = filter(lambda x: x.find('sd') != -1 and len(x) == 3, os.listdir("/dev"))
-for d in dev:
-    disk = atapt.atapt("/dev/" + d)
-    disks[disk.serial] = disk
-    select.append(disks[disk.serial].serial)
-    progress[disk.serial] = 0
-    loop[disk.serial] = 0
-    slow[disk.serial] = 0
-    error[disk.serial] = 0
-    speed[disk.serial] = 0
-    busy[disk.serial] = " "
-    mode[disk.serial] = "Idle"
+
+checkDevs()
 
 sel = 0
 try:
@@ -342,32 +380,40 @@ try:
             sel = int(ch)
             ch = 0
         if sel > 0:
-            print("Select action :   I-Info   V-Verify   E-Erase   R-Short   L-Long   S-Stop", end="")
+            print("Select action :   I-Info   V-Verify   E-Erase   R-Short   L-Long   S-Stop   C-Rescan", end="")
             if NEED_QUIT:
                 print("    Q-Quit")
             else:
                 print("            ")
             if ch == "i" or ch == "I":
-                showSmart(select[sel])
+                if checkDevs():
+                    showSmart(select[sel])
                 sel = 0
             elif ch == "v" or ch == "V":
-                d = Process(target=diskVerify, args=(select[sel],))
-                d.start()
+                if checkDevs():
+                    d = Process(target=diskVerify, args=(select[sel],))
+                    d.start()
                 sel = 0
             elif ch == "e" or ch == "E":
-                d = Process(target=diskErase, args=(select[sel],))
-                d.start()
+                if checkDevs():
+                    d = Process(target=diskErase, args=(select[sel],))
+                    d.start()
                 sel = 0
             elif ch == "r" or ch == "R":
-                d = Process(target=diskShortTest, args=(select[sel],))
-                d.start()
+                if checkDevs():
+                    d = Process(target=diskShortTest, args=(select[sel],))
+                    d.start()
                 sel = 0
             elif ch == "l" or ch == "L":
-                d = Process(target=diskLongTest, args=(select[sel],))
-                d.start()
+                if checkDevs():
+                    d = Process(target=diskLongTest, args=(select[sel],))
+                    d.start()
                 sel = 0
             elif ch == "s" or ch == "S":
                 mode[select[sel]] = "Idle"
+                sel = 0
+            elif ch == "c" or ch == "C":
+                checkDevs()
                 sel = 0
             elif NEED_QUIT and (ch == "q" or ch == "Q"):
                 exit()
